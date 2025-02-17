@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Álbum de Robótica</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet"> <!-- Fuente para los iconos -->
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #0a0a0a;
+            color: #00ffcc;
+            text-align: center;
+        }
+        .container {
+            max-width: 900px;
+            margin: auto;
+            padding: 20px;
+        }
+        .gallery {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+        .gallery img {
+            width: 200px;
+            height: 200px;
+            object-fit: cover;
+            border: 3px solid #00ffcc;
+            border-radius: 10px;
+            transition: transform 0.3s;
+        }
+        .gallery img:hover {
+            transform: scale(1.1);
+        }
+        .header {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+        .folder {
+            cursor: pointer;
+            color: #00ffcc;
+            margin: 10px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .folder:hover {
+            color: #fff;
+        }
+        .folder-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .back-button {
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            color: #00ffcc;
+        }
+        .back-button:hover {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">Álbum de Robótica</div>
+        <!-- Botón de regreso -->
+        <div id="back-button" class="back-button" style="display: none;">
+            <i class="fas fa-arrow-left"></i> Regresar
+        </div>
+        <div id="folder-list" class="folder-list"></div>
+        <div class="gallery" id="gallery"></div>
+    </div>
+    <script>
+        async function loadImages() {
+            try {
+                console.log("Cargando imágenes...");
+
+                // Obtener lista de carpetas dentro de "images/"
+                const response = await fetch('images/');
+                if (!response.ok) throw new Error(`Error al obtener imágenes: ${response.status}`);
+
+                const text = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+
+                // Extrae solo subcarpetas dentro de "images/" y elimina 'images' de la lista
+                const folders = [...doc.querySelectorAll('a')].map(a => {
+                    let folderName = a.getAttribute('href').replace(/^\//, '');
+                    return folderName;
+                }).filter(folder => folder !== '' && !folder.includes("..") && folder !== 'images');
+
+                console.log("Carpetas dentro de images/:", folders);
+
+                // Mostrar las carpetas con iconos
+                const folderList = document.getElementById('folder-list');
+                folderList.innerHTML = ''; // Limpiar la lista antes de llenarla
+                folders.forEach(folder => {
+                    const folderElement = document.createElement('div');
+                    folderElement.classList.add('folder');
+                    // Convertir la primera letra a mayúscula y eliminar "images/"
+                    const folderName = folder.charAt(0).toUpperCase() + folder.slice(1);
+                    folderElement.innerHTML = `<i class="fas fa-folder"></i> ${folderName}`;
+                    folderElement.onclick = () => loadFolderImages(folder);
+                    folderList.appendChild(folderElement);
+                });
+
+            } catch (error) {
+                console.error("Error en loadImages:", error);
+            }
+        }
+
+        async function loadFolderImages(folder) {
+            try {
+                console.log(`Cargando imágenes de la carpeta ${folder}...`);
+
+                const response = await fetch(`${folder}/`);
+                if (!response.ok) throw new Error(`Error al obtener carpeta ${folder}: ${response.status}`);
+
+                const text = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(text, 'text/html');
+
+                // Extraer imágenes dentro de la carpeta
+                const images = [...doc.querySelectorAll('a')]
+                    .map(a => a.getAttribute('href').replace(/^\//, '')) // Eliminar "/" al inicio
+                    .filter(href => href.match(/\.(jpg|png|gif)$/i)); // Solo archivos de imagen
+
+                console.log(`Imágenes en ${folder}:`, images);
+
+                // Mostrar las imágenes de la carpeta seleccionada
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = ''; // Limpiar galería antes de mostrar nuevas imágenes
+
+                // Mostrar el botón de regresar
+                const backButton = document.getElementById('back-button');
+                const folderList = document.getElementById('folder-list');
+                folderList.style.display = 'none'; // Ocultar las carpetas
+                backButton.style.display = 'block'; // Mostrar el botón de regresar
+
+                images.forEach(src => {
+                    // Usa solo la carpeta y el nombre de la imagen
+                    const imgSrc = `${folder}/${src.split('/').pop()}`;
+                    console.log("Cargando imagen:", imgSrc);
+
+                    const img = document.createElement('img');
+                    img.src = imgSrc;
+                    img.alt = `Imagen de ${folder}`;
+                    img.onerror = () => console.error(`Error al cargar imagen: ${imgSrc}`);
+                    gallery.appendChild(img);
+                });
+
+            } catch (error) {
+                console.error("Error al cargar las imágenes de la carpeta:", error);
+            }
+        }
+
+        // Función para regresar a la vista de carpetas
+        document.getElementById('back-button').onclick = () => {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = ''; // Limpiar la galería
+            document.getElementById('back-button').style.display = 'none'; // Ocultar el botón de regresar
+            document.getElementById('folder-list').style.display = 'flex'; // Mostrar las carpetas
+            loadImages(); // Recargar la vista de carpetas
+        };
+
+        loadImages(); // Llamada inicial para cargar las carpetas
+    </script>
+</body>
+</html>
